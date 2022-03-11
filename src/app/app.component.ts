@@ -54,18 +54,18 @@ export class AppComponent implements OnInit {
     this.board.on('object:moving', (e) => {
       const p = e.target as any;
       const [after, before] = p.lines
-      after && after.set({'x2': p.left, 'y2': p.top})
-      before && before.set({'x1': p.left, 'y1': p.top})
+      after && after.set({'x2': p.left+5, 'y2': p.top+5})
+      before && before.set({'x1': p.left+5, 'y1': p.top+5})
       this.board?.renderAll()
     });
   }
 
   makeCircle(left: number, top: number, ...lines: any[]): Circle {
     const c: any = new fabric.Circle({
-      left: left,
-      top: top,
+      left: left -5,
+      top: top -5,
       strokeWidth: 5,
-      radius: 12,
+      radius: 5,
       fill: '#fff',
       stroke: '#666'
     });
