@@ -1,7 +1,16 @@
-import { NodeWithI18n } from '@angular/compiler';
 import { Component, OnInit } from '@angular/core';
 import { fabric } from 'fabric';
 import { Canvas, Circle, Line } from 'fabric/fabric-impl';
+
+type Connector = [number, number, number, number]
+
+class Pointer {
+  constructor(
+    public left: number,
+    public top: number,
+  ) { }
+}
+
 
 @Component({
   selector: 'app-root',
@@ -10,67 +19,61 @@ import { Canvas, Circle, Line } from 'fabric/fabric-impl';
 })
 export class AppComponent implements OnInit {
 
-  title = 'fabric-js-test'
-
-  img: any = null
-  angle: number = 0
-  canvas: Canvas | undefined
-
-  vertices: Circle[] = []
-
-  constructor() { }
+  path: (Pointer | Connector)[] = []
+  board: Canvas | undefined
 
   ngOnInit(): void {
-    this.canvas = new fabric.Canvas('canvas')
-    this.canvas.on('mouse:dblclick', (evt) => {
+    this.board = new fabric.Canvas('canvas')
 
-      const x = evt.pointer?.x as number
-      const y = evt.pointer?.y as number
+    this.board.on('mouse:dblclick', evt => {
+      const left = evt.pointer!.x
+      const top = evt.pointer!.y
+      const pointer = new Pointer(left, top)
+      
+      if(this.path.length == 0) {
+        this.path.push(pointer)
+        this.board!.add(this.makeCircle(pointer))
+      } else {
+        const lastPointer: Pointer = this.path[this.path.length-1] as Pointer
+        const connector: Connector = [lastPointer.left, lastPointer.top, pointer.left, pointer.top]
+        this.path.push(connector)
+        this.path.push(pointer)
 
-      const circle = this.makeCircle(x, y)
+        this.board!.add(this.makeLine(connector))
+        this.board!.add(this.makeCircle(pointer))
+      }
 
-      this.makePath(circle)
+    })
 
-      this.canvas?.add(circle)
-
+    this.board.on('object:moving', evt => {
+      console.log(evt.target)
     })
 
   }
 
-  makeCircle(left: number, top: number, preLine?: any): any {
-    const circle = new fabric.Circle({
-      left,
-      top,
-      fill: 'red',
-      strokeWidth: 5,
-      stroke: '#F00',
-      radius: 5
+  makeCircle(pointer: Pointer): Circle {
+    const circ = new fabric.Circle({
+      left: pointer.left,
+      top: pointer.top,
+      radius: 10,
+      fill: 'transparent',
+      stroke: '#666'
     })
-    circle.hasControls = false
-    circle.hasBorders = false;
-    (circle as any).preLine = preLine
-    return circle
+    circ.hasControls = false
+    circ.hasBorders = false
+    return circ
   }
 
-  makeLine(lastCircle: Circle, newCircle: Circle): Line {
-    const coords = [lastCircle.left, lastCircle.top, newCircle.left, newCircle.top] as number[]
-    return new fabric.Line(coords, {
+  makeLine(connector: Connector): Line {
+    const line = new fabric.Line(connector, {
       fill: 'red',
       stroke: 'red',
-      strokeWidth: 1,
+      strokeWidth: 3,
       selectable: false,
-      evented: false,
+      evented: false
     })
+    return line
   }
 
-  makePath(circle: Circle): void {
-    this.vertices.push(circle)
-
-    for (let i = 0; i < this.vertices.length - 1; i++) {
-      const line = this.makeLine(this.vertices[i], this.vertices[i + 1])
-      this.canvas?.add(line)
-    }
-
-  }
 
 }
