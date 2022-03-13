@@ -5,7 +5,7 @@ import { Canvas, Circle, Line } from 'fabric/fabric-impl';
 import { BehaviorSubject } from 'rxjs';
 
 type Pointer = [number, number]
-
+type MyCircle = Circle & { lineB: Line, lineA: Line }
 
 @Component({
   selector: 'app-root',
@@ -14,7 +14,7 @@ type Pointer = [number, number]
 })
 export class AppComponent implements OnInit {
 
-  pointers: any[] = []
+  pointers: Circle[] = []
   canvas: Canvas | null = null
 
   itemsDrawn: BehaviorSubject<(Circle | Line)[]> = new BehaviorSubject<(Circle | Line)[]>([])
@@ -30,23 +30,82 @@ export class AppComponent implements OnInit {
 
       this.pointers.push(circle)
 
+      this.drawnPath()
+
       this.canvas?.add(circle)
 
     })
 
-    
-    // this.board.on('object:moving', (e) => {
-    //   const p = e.target as any;
-    //   const [after, before] = p.lines
-    //   before && before.set({ 'x1': p.left + 5, 'y1': p.top + 5 })
-    //   after && after.set({ 'x2': p.left + 5, 'y2': p.top + 5 })
-    //   this.board?.renderAll()
-    // });
+
+    this.canvas.on('object:moving', (e) => {
+      const p = e.target as any;
+      const { lineB, lineA } = p
+      lineB && lineB.set({ 'x2': p.left, 'y2': p.top })
+      lineA && lineA.set({ 'x1': p.left, 'y1': p.top })
+      this.canvas?.renderAll()
+    });
   }
 
-  
+  drawnPath(): void {
 
-  makeCircle(left: number, top: number): Circle {
+    if (this.pointers.length <= 1) {
+      return
+    }
+
+    for (let i = 0; i < this.pointers.length; i++) {
+
+      if (i == 0) {
+
+        const cF = this.pointers[0] as MyCircle
+        const ca = this.pointers[1] as MyCircle
+
+        // const lineA = this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
+        const lineA = ca.lineB || this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
+        this.insertLine(cF, undefined, lineA)
+
+      } else if (i == (this.pointers.length - 1)) {
+        const cb = this.pointers[this.pointers.length - 2] as MyCircle
+        const cL = this.pointers[this.pointers.length - 1] as MyCircle
+
+        
+        const lineB = cb.lineA || this.makeLine([cb.left as number, cb.top as number], [cL.left as number, cL.top as number])
+        this.insertLine(cL, lineB)
+      }
+      if (i > 0 && i < (this.pointers.length - 1)) {
+        const cb = this.pointers[i - 1] as MyCircle
+        const cM = this.pointers[i] as MyCircle
+        const ca = this.pointers[i + 1] as MyCircle
+
+        const lineB = this.makeLine([cb.left as number, cb.top as number], [cM.left as number, cM.top as number])
+        const lineA = this.makeLine([cM.left as number, cM.top as number], [ca.left as number, ca.top as number])
+
+        this.insertLine(cM, lineB, lineA)
+
+      }
+
+    }
+
+    console.log(this.pointers)
+
+  }
+
+  insertLine(circle: { lineB?: Line, lineA?: Line } & Circle, lineB?: Line, lineA?: Line) {
+
+    if (lineB && !circle.lineB) {
+      circle.lineB = lineB
+      this.canvas?.add(lineB)
+    }
+
+    if (lineA && !circle.lineA) {
+      circle.lineA = lineA
+      this.canvas?.add(lineA)
+    }
+
+  }
+
+
+
+  makeCircle(left: number, top: number, lineB?: number[], lineA?: number[]): Circle {
     const c: any = new fabric.Circle({
       left: left - 3,
       top: top - 3,
@@ -56,6 +115,10 @@ export class AppComponent implements OnInit {
       stroke: 'red'
     });
     c.hasControls = c.hasBorders = false;
+
+    c.lineB = lineB
+    c.lineA = lineA
+
     return c;
   }
 
