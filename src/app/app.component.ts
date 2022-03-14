@@ -23,19 +23,23 @@ export class AppComponent implements OnInit {
     this.canvas = new fabric.Canvas('canvas')
 
     this.canvas.on('mouse:dblclick', evt => {
-      const left = evt.pointer!.x
-      const top = evt.pointer!.y
-
-      const circle = this.makeCircle(left, top)
-
-      this.pointers.push(circle)
-
-      this.drawnPath()
-
-      this.canvas?.add(circle)
-
+      if (this.pointers.length > 2 && evt.target == this.pointers[0]) {
+        const cF = this.pointers[0] as MyCircle
+        const cL = this.pointers[this.pointers.length - 1] as MyCircle
+        const line = this.makeLine([cL.left as number, cL!.top as number], [cF.left as number, cF.top as number])
+        cF.lineB = cF.lineB ?? line
+        cL.lineA = cL.lineA ?? line
+        this.canvas?.add(line)
+        this.canvas?.off('mouse:dblclick')
+      } else {
+        const left = evt.pointer!.x
+        const top = evt.pointer!.y
+        const circle = this.makeCircle(left, top)
+        this.pointers.push(circle)
+        this.drawnPath()
+        this.canvas?.add(circle)
+      }
     })
-
 
     this.canvas.on('object:moving', (e) => {
       const p = e.target as any;
@@ -59,7 +63,6 @@ export class AppComponent implements OnInit {
         const cF = this.pointers[0] as MyCircle
         const ca = this.pointers[1] as MyCircle
 
-        // const lineA = this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
         const lineA = ca.lineB || this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
         this.insertLine(cF, undefined, lineA)
 
@@ -67,7 +70,7 @@ export class AppComponent implements OnInit {
         const cb = this.pointers[this.pointers.length - 2] as MyCircle
         const cL = this.pointers[this.pointers.length - 1] as MyCircle
 
-        
+
         const lineB = cb.lineA || this.makeLine([cb.left as number, cb.top as number], [cL.left as number, cL.top as number])
         this.insertLine(cL, lineB)
       }
@@ -102,8 +105,6 @@ export class AppComponent implements OnInit {
     }
 
   }
-
-
 
   makeCircle(left: number, top: number, lineB?: number[], lineA?: number[]): Circle {
     const c: any = new fabric.Circle({
