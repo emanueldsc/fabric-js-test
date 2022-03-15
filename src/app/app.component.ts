@@ -1,7 +1,7 @@
 import { Call } from '@angular/compiler';
 import { Component, OnInit } from '@angular/core';
 import { fabric } from 'fabric';
-import { Canvas, Circle, Line, Polygon } from 'fabric/fabric-impl';
+import { Canvas, Circle, Line, Point, Polygon } from 'fabric/fabric-impl';
 import { BehaviorSubject } from 'rxjs';
 
 type Pointer = [number, number]
@@ -18,12 +18,22 @@ export class AppComponent implements OnInit {
   polygons: any[] = []
   canvas: Canvas | null = null
 
-  itemsDrawn: BehaviorSubject<(Circle | Line)[]> = new BehaviorSubject<(Circle | Line)[]>([])
+  editPath: boolean = false
 
   ngOnInit(): void {
     this.canvas = new fabric.Canvas('canvas')
+    this.setOnMouseDoubleClick()
+    this.canvas.on('object:moving', (e) => {
+      const p = e.target as any;
+      const { lineB, lineA } = p
+      lineB && lineB.set({ 'x2': p.left + 3, 'y2': p.top + 3 })
+      lineA && lineA.set({ 'x1': p.left + 3, 'y1': p.top + 3 })
+      this.canvas?.renderAll()
+    })
+  }
 
-    this.canvas.on('mouse:dblclick', evt => {
+  setOnMouseDoubleClick(): void {
+    this.canvas!.on('mouse:dblclick', evt => {
       if (this.pointers.length > 2 && evt.target == this.pointers[0]) {
         const cF = this.pointers[0] as MyCircle
         const cL = this.pointers[this.pointers.length - 1] as MyCircle
@@ -41,69 +51,43 @@ export class AppComponent implements OnInit {
         this.canvas?.add(circle)
       }
     })
-
-    this.canvas.on('object:moving', (e) => {
-      const p = e.target as any;
-      const { lineB, lineA } = p
-      lineB && lineB.set({ 'x2': p.left + 3, 'y2': p.top + 3 })
-      lineA && lineA.set({ 'x1': p.left + 3, 'y1': p.top + 3 })
-      this.canvas?.renderAll()
-    });
   }
 
   drawnPath(): void {
-
     if (this.pointers.length <= 1) {
       return
     }
-
     for (let i = 0; i < this.pointers.length; i++) {
-
       if (i == 0) {
-
         const cF = this.pointers[0] as MyCircle
         const ca = this.pointers[1] as MyCircle
-
         const lineA = ca.lineB || this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
         this.insertLine(cF, undefined, lineA)
-
       } else if (i == (this.pointers.length - 1)) {
         const cb = this.pointers[this.pointers.length - 2] as MyCircle
         const cL = this.pointers[this.pointers.length - 1] as MyCircle
-
-
         const lineB = cb.lineA || this.makeLine([cb.left as number, cb.top as number], [cL.left as number, cL.top as number])
         this.insertLine(cL, lineB)
-      }
-      if (i > 0 && i < (this.pointers.length - 1)) {
+      } else if (i > 0 && i < (this.pointers.length - 1)) {
         const cb = this.pointers[i - 1] as MyCircle
         const cM = this.pointers[i] as MyCircle
         const ca = this.pointers[i + 1] as MyCircle
-
         const lineB = this.makeLine([cb.left as number, cb.top as number], [cM.left as number, cM.top as number])
         const lineA = this.makeLine([cM.left as number, cM.top as number], [ca.left as number, ca.top as number])
-
         this.insertLine(cM, lineB, lineA)
       }
-
     }
-
-    console.log(this.pointers)
-
   }
 
-  insertLine(circle: { lineB?: Line, lineA?: Line } & Circle, lineB?: Line, lineA?: Line) {
-
+  insertLine(circle: MyCircle & Circle, lineB?: Line, lineA?: Line) {
     if (lineB && !circle.lineB) {
       circle.lineB = lineB
       this.canvas?.add(lineB)
     }
-
     if (lineA && !circle.lineA) {
       circle.lineA = lineA
       this.canvas?.add(lineA)
     }
-
   }
 
   makeCircle(left: number, top: number, lineB?: number[], lineA?: number[]): Circle {
@@ -116,10 +100,8 @@ export class AppComponent implements OnInit {
       stroke: 'red'
     });
     c.hasControls = c.hasBorders = false;
-
     c.lineB = lineB
     c.lineA = lineA
-
     return c;
   }
 
@@ -135,27 +117,71 @@ export class AppComponent implements OnInit {
   }
 
   createPoligon() {
-    const points = this.pointers.map(el => ({ x: el.left as number, y: el.top as number}))
+    const points = this.pointers.map(el => ({ x: el.left as number, y: el.top as number }))
     const polygon = new fabric.Polygon(points, {
       fill: 'transparent',
       stroke: 'red',
       strokeWidth: 3,
       strokeDashArray: [10]
     })
-    polygon.on('mouse:dblclick', evt => {
-      debugger
-      const poly = evt.target as Polygon
-      (poly as any).edit = !(poly as any).edit
-    })
     this.canvas?.add(polygon)
-    this.pointers.forEach( el => {
+    this.pointers.forEach(el => {
       this.canvas?.remove((el as any).lineB)
       this.canvas?.remove((el as any).lineA)
       this.canvas?.remove(el)
     });
     this.pointers = []
     this.canvas?.renderAll()
-    
+
+  }
+
+  editPolygon() {
+    if (this.editPath) {
+      this.editPath = false
+      this.createPoligon()
+      this.pointers = []
+      return
+    }
+    const canvas = this.canvas
+    const polygon = canvas?.getActiveObject() as Polygon
+    const pts = polygon.points
+    this.pointers = pts!.map<MyCircle>(coord => {
+      const circle = this.makeCircle(coord.x - 3, coord.y - 3)
+      this.canvas?.add(circle)
+      return circle as MyCircle
+    })
+    this.redrawnPolygon(this.pointers as MyCircle[])
+    canvas?.remove(polygon)
+    this.canvas?.renderAll()
+  }
+
+
+  redrawnPolygon(pts: MyCircle[]): void {
+    for (let i = 0; i < pts.length; i++) {
+      if (i == 0) {
+        const cF = pts[i]
+        const ca = pts[i + 1]
+        const line = this.makeLine([cF.left as number, cF.top as number], [ca.left as number, ca.top as number])
+        this.insertLine(cF, undefined, line)
+      } else if (i == (pts.length - 1)) {
+        const cF = pts[0]
+        const cb = pts[i - 1]
+        const cL = pts[i]
+        const lineB = cb.lineA || this.makeLine([cb.left as number, cb.top as number], [cL.left as number, cL.top as number])
+        const lineLast = this.makeLine([cL.left as number, cL.top as number], [cF.left as number, cF.top as number])
+        this.insertLine(cL, lineB, lineLast)
+        this.insertLine(cF, lineLast)
+      } else if (i > 0 && i < pts.length - 1) {
+        const cb = pts[i - 1]
+        const cM = pts[i]
+        const ca = pts[i + 1]
+        const lineB = cb.lineA || this.makeLine([cb.left as number, cb.top as number], [cM.left as number, cM.top as number])
+        const lineA = ca.lineB || this.makeLine([cM.left as number, cM.top as number], [ca.left as number, ca.top as number])
+        this.insertLine(cM, lineB, lineA)
+      }
+    }
+    this.canvas?.off('mouse:dblclick')
+    this.editPath = true
   }
 
 
