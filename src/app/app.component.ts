@@ -140,10 +140,14 @@ export class AppComponent implements OnInit {
       this.editPath = false
       this.createPoligon()
       this.pointers = []
+      this.setOnMouseDoubleClick()
       return
     }
     const canvas = this.canvas
     const polygon = canvas?.getActiveObject() as Polygon
+    if (!polygon) {
+      return
+    }
     const pts = polygon.points
     this.pointers = pts!.map<MyCircle>(coord => {
       const circle = this.makeCircle(coord.x - 3, coord.y - 3)
